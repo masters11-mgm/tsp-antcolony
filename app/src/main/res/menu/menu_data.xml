@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/btnflow1"
+        android:title="Pengiriman Pertama" />
+    <item
+        android:id="@+id/btnflow2"
+        android:title="Pengiriman Kedua" />
+    <item
+        android:id="@+id/btnflow3"
+        android:title="Pengiriman Ketiga" />
+</menu>
