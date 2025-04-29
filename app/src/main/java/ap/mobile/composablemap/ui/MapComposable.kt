@@ -1,6 +1,5 @@
 package ap.mobile.composablemap.ui
 
-import android.util.Log
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
@@ -68,11 +67,8 @@ import ap.mobile.composablemap.model.ParcelItem
 import ap.mobile.composablemap.ui.icons.ParcelaIcons
 import ap.mobile.composablemap.ui.theme.doublePulseEffect
 import com.google.android.gms.maps.CameraUpdateFactory
-import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.LatLngBounds
-import com.google.android.gms.maps.model.StrokeStyle
-import com.google.android.gms.maps.model.StyleSpan
 import com.google.maps.android.clustering.Cluster
 import com.google.maps.android.clustering.algo.NonHierarchicalDistanceBasedAlgorithm
 import com.google.maps.android.compose.GoogleMap
@@ -408,7 +404,7 @@ fun DeliveryMap(
   modifier: Modifier = Modifier,
   parcels: List<Parcel> = listOf(),
   deliveryRoute: List<LatLng> = listOf(),
-  mapRoute: List<LatLng> = listOf(), // ⬅️ Tambahan baru
+  mapRouteEdges: List<Pair<LatLng, LatLng>> = listOf(), // ⬅️ Update di sini
   currentPosition: LatLng = LatLng(0.0, 0.0),
   zoom: Float = 13f,
   onSelectParcel: (Parcel) -> Unit = {},
@@ -470,20 +466,22 @@ fun DeliveryMap(
       )
 
       if (deliveryRoute.isNotEmpty()) {
-        Log.d("Cek-data", "DeliveryMap:"+ deliveryRoute)
         Polyline(
           points = deliveryRoute,
           color = Color.Blue,
           width = 8f
         )
       }
-//      if (mapRoute.isNotEmpty()) {
-//        Polyline(
-//          points = mapRoute,
-//          width = 1f,
-//          color = Color.Gray
-//        )
-//      }
+      if (mapRouteEdges.isNotEmpty()) {
+        mapRouteEdges.forEach { (start, end) ->
+          Polyline(
+            points = listOf(start, end),
+            color = Color.Gray.copy(alpha = 0.5f),
+            width = 4f
+          )
+        }
+      }
+
     }
 
     LaunchedEffect(deliveryRoute) {

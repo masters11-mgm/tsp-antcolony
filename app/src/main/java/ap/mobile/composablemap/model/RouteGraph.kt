@@ -1,7 +1,10 @@
-
+// File: RouteGraph.kt
 package ap.mobile.composablemap.model
+
+import android.util.Log
 import com.google.android.gms.maps.model.LatLng
 import java.util.PriorityQueue
+import kotlin.math.pow
 
 class RouteGraph(private val points: List<RoutePoint>) {
 
@@ -19,27 +22,47 @@ class RouteGraph(private val points: List<RoutePoint>) {
 
     private fun buildGraph() {
         for (i in 0 until points.size - 1) {
-            val from = i
-            val to = i + 1
-            val distance = haversineDistance(points[from], points[to])
-            val speed = speedToMetersPerSecond(points[from].speed)
-            val time = distance / speed
+            val current = points[i]
+            val next = points[i + 1]
 
-            adjacencyList.getOrPut(from) { mutableListOf() }
-                .add(Edge(to, distance, time))
+            if (current.idLine == next.idLine && current.deadPoint != 1) {
+                val from = i
+                val to = i + 1
+                val distance = haversineDistance(current, next)
+                val speed = speedToMetersPerSecond(current.speed)
+                val time = distance / speed
 
-            adjacencyList.getOrPut(to) { mutableListOf() }
-                .add(Edge(from, distance, time))
+                adjacencyList.getOrPut(from) { mutableListOf() }
+                    .add(Edge(to, distance, time))
+
+                adjacencyList.getOrPut(to) { mutableListOf() }
+                    .add(Edge(from, distance, time)) // jalan dua arah
+            }
         }
+//        for ((from, edges) in adjacencyList) {
+//            Log.d("RouteGraph", "Node $from: ")
+//            for (edge in edges) {
+//                Log.d(
+//                    "RouteGraph",
+//                    "  ➔ to=${edge.to} distance=${edge.distanceMeters}m time=${edge.estimatedTimeSeconds}s"
+//                )
+//            }
+//        }
     }
 
+
     private fun haversineDistance(p1: RoutePoint, p2: RoutePoint): Double {
-        val R = 6371000.0
-        val dLat = Math.toRadians(p2.lat - p1.lat)
-        val dLon = Math.toRadians(p2.lng - p1.lng)
-        val a = kotlin.math.sin(dLat / 2) * kotlin.math.sin(dLat / 2) +
-                kotlin.math.cos(Math.toRadians(p1.lat)) * kotlin.math.cos(Math.toRadians(p2.lat)) *
-                kotlin.math.sin(dLon / 2) * kotlin.math.sin(dLon / 2)
+        return haversineDistance(LatLng(p1.lat, p1.lng), LatLng(p2.lat, p2.lng))
+    }
+
+    private fun haversineDistance(p1: LatLng, p2: LatLng): Double {
+        val R = 6371000.0 // radius bumi dalam meter
+        val dLat = Math.toRadians(p2.latitude - p1.latitude)
+        val dLng = Math.toRadians(p2.longitude - p1.longitude)
+        val a = kotlin.math.sin(dLat / 2).pow(2.0) +
+                kotlin.math.cos(Math.toRadians(p1.latitude)) *
+                kotlin.math.cos(Math.toRadians(p2.latitude)) *
+                kotlin.math.sin(dLng / 2).pow(2.0)
         val c = 2 * kotlin.math.atan2(kotlin.math.sqrt(a), kotlin.math.sqrt(1 - a))
         return R * c
     }
@@ -53,16 +76,133 @@ class RouteGraph(private val points: List<RoutePoint>) {
         }
     }
 
+//    fun findShortestPath(start: LatLng, end: LatLng): List<LatLng> {
+//        val startIndex = findNearestPointIndex(start)
+//        val endIndex = findNearestPointIndex(end)
+//
+//        val distances = MutableList(points.size) { Double.MAX_VALUE }
+//        val previous = MutableList<Int?>(points.size) { null }
+//        val visited = MutableList(points.size) { false }
+//
+//        val queue = PriorityQueue(compareBy<Pair<Int, Double>> { it.second })
+//
+//        distances[startIndex] = 0.0
+//        queue.add(startIndex to 0.0)
+//
+//        while (queue.isNotEmpty()) {
+//            val (current, _) = queue.poll()
+//            if (visited[current]) continue
+//            visited[current] = true
+//
+//            adjacencyList[current]?.forEach { edge ->
+//                val alt = distances[current] + edge.distanceMeters
+//                if (alt < distances[edge.to]) {
+//                    distances[edge.to] = alt
+//                    previous[edge.to] = current
+//                    queue.add(edge.to to alt)
+//                }
+//            }
+//        }
+//
+//        val path = mutableListOf<LatLng>()
+//        var current = endIndex
+//        while (current != startIndex) {
+//            path.add(LatLng(points[current].lat, points[current].lng))
+//            current = previous[current] ?: break
+//        }
+//        path.add(LatLng(points[startIndex].lat, points[startIndex].lng))
+//        return path.reversed()
+//    }
+fun buildExplicitEdgeGraph(edges: List<Pair<LatLng, LatLng>>): Map<LatLng, List<LatLng>> {
+    val graph = mutableMapOf<LatLng, MutableList<LatLng>>()
+
+    for ((from, to) in edges) {
+        graph.getOrPut(from) { mutableListOf() }.add(to)
+        graph.getOrPut(to) { mutableListOf() }.add(from) // asumsi dua arah
+    }
+
+    return graph
+}
+    fun shortestPathOnEdges(
+        start: LatLng,
+        end: LatLng,
+        edgeGraph: Map<LatLng, List<LatLng>>
+    ): List<LatLng> {
+        val queue = ArrayDeque<List<LatLng>>()
+        val visited = mutableSetOf<LatLng>()
+
+        val nearestStart = findClosestPoint(start, edgeGraph.keys)
+        val nearestEnd = findClosestPoint(end, edgeGraph.keys)
+
+        queue.add(listOf(nearestStart))
+
+        while (queue.isNotEmpty()) {
+            val path = queue.removeFirst()
+            val current = path.last()
+            if (current == nearestEnd) return path
+
+            visited.add(current)
+            for (neighbor in edgeGraph[current] ?: emptyList()) {
+                if (neighbor !in visited) {
+                    queue.add(path + neighbor)
+                }
+            }
+        }
+
+        return emptyList()
+    }
+
+    fun getEdgesFromMapRoute(): List<Pair<LatLng, LatLng>> {
+        return points.zipWithNext()
+            .filter { it.first.idLine == it.second.idLine && it.first.deadPoint != 1 }
+            .map { Pair(LatLng(it.first.lat, it.first.lng), LatLng(it.second.lat, it.second.lng)) }
+    }
+
+    fun findNearestInEdgeGraph(coord: LatLng, nodes: Set<LatLng>): LatLng {
+        return nodes.minByOrNull { haversineDistance(coord, it) }!!
+    }
+
+    fun findPathUsingEdges(
+        start: LatLng,
+        end: LatLng,
+        graph: Map<LatLng, List<LatLng>>
+    ): List<LatLng> {
+        val queue = ArrayDeque<List<LatLng>>()
+        val visited = mutableSetOf<LatLng>()
+        queue.add(listOf(start))
+
+        while (queue.isNotEmpty()) {
+            val path = queue.removeFirst()
+            val current = path.last()
+            if (current == end) return path
+            if (current in visited) continue
+            visited.add(current)
+            graph[current]?.forEach { neighbor ->
+                queue.add(path + neighbor)
+            }
+        }
+        return emptyList()
+    }
+
+
+    private fun findClosestPoint(target: LatLng, points: Collection<LatLng>): LatLng {
+        return points.minByOrNull { haversineDistance(target, it) } ?: target
+    }
+
     fun findShortestPath(start: LatLng, end: LatLng): List<LatLng> {
-        val startIndex = findNearestPointIndex(start)
-        val endIndex = findNearestPointIndex(end)
+        val pointsInGraph = points.map { LatLng(it.lat, it.lng) }
+
+        val snappedStart = pointsInGraph.minByOrNull { haversineDistance(it, start) } ?: start
+        val snappedEnd = pointsInGraph.minByOrNull { haversineDistance(it, end) } ?: end
+
+        val startIndex = points.indexOfFirst { it.lat == snappedStart.latitude && it.lng == snappedStart.longitude }
+        val endIndex = points.indexOfFirst { it.lat == snappedEnd.latitude && it.lng == snappedEnd.longitude }
 
         val distances = MutableList(points.size) { Double.MAX_VALUE }
         val previous = MutableList<Int?>(points.size) { null }
         val visited = MutableList(points.size) { false }
 
         val queue = PriorityQueue(compareBy<Pair<Int, Double>> { it.second })
-
         distances[startIndex] = 0.0
         queue.add(startIndex to 0.0)
 
@@ -83,7 +223,7 @@ class RouteGraph(private val points: List<RoutePoint>) {
 
         val path = mutableListOf<LatLng>()
         var current = endIndex
-        while (current != startIndex) {
+        while (current != startIndex && current != -1) {
             path.add(LatLng(points[current].lat, points[current].lng))
             current = previous[current] ?: break
         }
@@ -91,23 +231,122 @@ class RouteGraph(private val points: List<RoutePoint>) {
         return path.reversed()
     }
 
-    private fun findNearestPointIndex(location: LatLng): Int {
+
+    fun findNearestRoutePoint(location: LatLng): RoutePoint {
         var minDistance = Double.MAX_VALUE
-        var nearestIndex = 0
-        for ((index, point) in points.withIndex()) {
+        var nearestPoint = points.first()
+        for (point in points) {
             val distance = haversineDistance(
-                RoutePoint("", 0, null, location.latitude, location.longitude, "normal"),
+                RoutePoint(
+                    idLine = "",
+                    idPoint = 0,
+                    idInterchange = null,
+                    lat = location.latitude,
+                    lng = location.longitude,
+                    speed = "normal",
+                    deadPoint = null
+                ),
                 point
             )
+            if (distance < minDistance) {
+                minDistance = distance
+                nearestPoint = point
+            }
+        }
+        return nearestPoint
+    }
+
+
+    private fun findNearestPointIndex(location: LatLng): Int {
+        var minDistance = Double.MAX_VALUE
+        var nearestIndex = -1
+
+        for ((index, point) in points.withIndex()) {
+            // Skip deadpoint saat mencari titik terdekat
+            if (point.deadPoint == 1) continue
+
+            val distance = haversineDistance(
+                RoutePoint(
+                    idLine = "",
+                    idPoint = 0,
+                    idInterchange = null,
+                    lat = location.latitude,
+                    lng = location.longitude,
+                    speed = "normal",
+                    deadPoint = null
+                ),
+                point
+            )
+
             if (distance < minDistance) {
                 minDistance = distance
                 nearestIndex = index
             }
         }
+
+        if (nearestIndex == -1) {
+            throw IllegalStateException("No valid point found near location: $location")
+        }
+
         return nearestIndex
     }
+
+    private fun findNearestConnectedPointIndex(location: LatLng): Int {
+        var minDistance = Double.MAX_VALUE
+        var nearestIndex = -1
+
+        for ((index, point) in points.withIndex()) {
+            if (point.deadPoint == 1) continue
+            if (!adjacencyList.containsKey(index)) continue // ⬅️ hanya titik dengan koneksi
+
+            val distance = haversineDistance(
+                RoutePoint(
+                    idLine = "",
+                    idPoint = 0,
+                    idInterchange = null,
+                    lat = location.latitude,
+                    lng = location.longitude,
+                    speed = "normal",
+                    deadPoint = null
+                ),
+                point
+            )
+
+            if (distance < minDistance) {
+                minDistance = distance
+                nearestIndex = index
+            }
+        }
+
+        if (nearestIndex == -1) {
+            throw IllegalStateException("No connected route point found near $location")
+        }
+
+        return nearestIndex
+    }
+
+
     fun getEdges(from: Int): List<Edge> {
         return adjacencyList[from] ?: emptyList()
     }
+
     fun getPoints(): List<RoutePoint> = points
+
+    fun getAllEdgesAsLatLng(): List<Pair<LatLng, LatLng>> {
+        val edges = mutableListOf<Pair<LatLng, LatLng>>()
+        adjacencyList.forEach { (fromIndex, edgeList) ->
+            val fromPoint = points[fromIndex]
+            for (edge in edgeList) {
+                val toPoint = points[edge.to]
+                edges.add(
+                    Pair(
+                        LatLng(fromPoint.lat, fromPoint.lng),
+                        LatLng(toPoint.lat, toPoint.lng)
+                    )
+                )
+            }
+        }
+        return edges
+    }
+
 }

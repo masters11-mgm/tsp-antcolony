@@ -47,7 +47,9 @@ class MapViewModel(private val context: Context) : ViewModel() {
 
   fun moveToLocation(location: LatLng) {
     _mapUiState.update { currentState ->
-      currentState.copy(currentPosition = location)
+      currentState.copy(
+        mapRouteEdges = parcelRepository.getAllMapRouteEdges()
+      )
     }
   }
 
@@ -56,13 +58,14 @@ class MapViewModel(private val context: Context) : ViewModel() {
       try {
         fusedLocationClient.getCurrentLocation(LocationRequest.PRIORITY_HIGH_ACCURACY,
           object : CancellationToken() {
-            override fun onCanceledRequested(p0: OnTokenCanceledListener) = CancellationTokenSource().token
+            override fun onCanceledRequested(p0: OnTokenCanceledListener) =
+              CancellationTokenSource().token
             override fun isCancellationRequested() = false
-          }).addOnSuccessListener { location: Location? ->
-          location?.let {
-            moveToLocation(LatLng(it.latitude, it.longitude))
+          })
+          .addOnSuccessListener { location: Location? ->
+            if (location != null)
+              moveToLocation(LatLng(location.latitude, location.longitude))
           }
-        }
       } catch (e: SecurityException) {
         Timber.e("Permission for location access was revoked: ${e.localizedMessage}")
       }
@@ -95,14 +98,10 @@ class MapViewModel(private val context: Context) : ViewModel() {
       _mapUiState.update { currentState ->
         currentState.copy(
           parcels = parcels,
-          mapRoute = getMapRouteLatLng()
+          mapRoute = parcelRepository.getAllMapRoutePoints().map { LatLng(it.lat, it.lng) }
         )
       }
     }
-  }
-
-  fun getMapRouteLatLng(): List<LatLng> {
-    return parcelRepository.getAllMapRoutePoints().map { LatLng(it.lat, it.lng) }
   }
 
   fun getDeliveryRecommendation(context: Context, parcel: Parcel? = null) {
@@ -113,14 +112,16 @@ class MapViewModel(private val context: Context) : ViewModel() {
       currentState.copy(isComputing = true)
     }
 
-    val preferenceRepository: PreferenceRepository = PreferenceRepository(context)
+    val preferenceRepository = PreferenceRepository(context)
 
     viewModelScope.launch {
       val result = parcelRepository.computeDelivery(::setProgress, parcel,
-        optimizer = preferenceRepository.getString(PreferencesKeys.OPTIMIZER).toString())
+        optimizer = preferenceRepository.getString(PreferencesKeys.OPTIMIZER).toString()
+      )
+
       when (result) {
-        is Result.Success -> {
-          val (delivery, routePoints) = result.data
+        is Result.Success<Pair<Delivery, List<LatLng>>> -> {
+          val (delivery, fullDeliveryRoute) = result.data
 
           _deliveryUiState.update { currentState ->
             currentState.copy(
@@ -135,15 +136,18 @@ class MapViewModel(private val context: Context) : ViewModel() {
               isComputing = false,
               deliveries = delivery.parcels,
               deliveryDistance = delivery.distance,
-              deliveryDuration = delivery.duration
+              deliveryDuration = delivery.duration,
             )
           }
           _mapUiState.update { currentState ->
-            currentState.copy(deliveryRoute = routePoints)
+            currentState.copy(deliveryRoute = fullDeliveryRoute)
           }
         }
-        else -> {} // Handle error
+        else -> {
+          // Handle error
+        }
       }
+
     }
   }
 

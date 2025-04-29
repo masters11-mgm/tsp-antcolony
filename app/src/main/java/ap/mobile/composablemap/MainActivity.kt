@@ -6,7 +6,6 @@ import android.content.Context
 import android.content.ContextWrapper
 import android.content.pm.PackageManager
 import android.os.Bundle
-import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
@@ -14,7 +13,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.activity.viewModels
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.TweenSpec
@@ -287,10 +285,12 @@ lateinit var vm: MapViewModel
       }
     }
 
-    DeliveryMap(modifier = modifier,
+    DeliveryMap(
+      modifier = modifier,
       parcels = mapUiState.parcels,
       deliveryRoute = mapUiState.deliveryRoute,
-      mapRoute = mapUiState.mapRoute,
+      mapRouteEdges = mapUiState.mapRouteEdges, // ⬅️ tambah ini
+//      mapRoute = mapUiState.mapRoute,
       currentPosition = mapUiState.currentPosition,
       zoom = mapUiState.zoom,
       onSelectParcel = { parcel: Parcel ->
