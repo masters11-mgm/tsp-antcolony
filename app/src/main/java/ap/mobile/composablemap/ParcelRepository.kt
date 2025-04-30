@@ -1,6 +1,7 @@
 package ap.mobile.composablemap
 
 import android.content.Context
+import android.util.Log
 import androidx.lifecycle.ViewModelProvider
 import com.google.android.gms.maps.model.LatLng
 import ap.mobile.composablemap.abc.BeeColony
@@ -17,7 +18,7 @@ import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
-
+import kotlin.system.measureTimeMillis
 
 
 sealed class Result<out R> {
@@ -97,6 +98,7 @@ class ParcelRepository(context: Context) {
     parcels.add(Parcel(48,lat=-8.0233612,lng=112.6299637,type="Regular",recipientName="Endang Purwanto",address="Pasar Induk Gadang, Gadang, Kec. Sukun, Kota Malang, Jawa Timur"))
     parcels.add(Parcel(49,lat=-8.0235648,lng=112.6307179,type="Regular",recipientName="Dewi Setiawan",address="Jl. Ps. Induk Gadang, Bumiayu, Kec. Sukun, Kota Malang, Jawa Timur"))
     parcels.add(Parcel(50,lat=-8.0234378,lng=112.6302712,type="Regular",recipientName="Agus Wahyudi",address="Jl. Ps. Gadang, Gadang, Kec. Sukun, Kota Malang, Jawa Timur"))
+
 
   }
 
@@ -206,35 +208,49 @@ class ParcelRepository(context: Context) {
     optimizer: String = "ACO"
   ): Result<Pair<Delivery, List<LatLng>>> {
     return withContext(Dispatchers.IO) {
-      val allParcelsForAlgorithm = listOf(startParcel) + parcels
-      val opt: IOptimizer = if (optimizer.equals("ABC", ignoreCase = true)) {
-        BeeColony(allParcelsForAlgorithm, progress = progress, startAtParcel = startParcel, distanceCalculator = distanceCalculator)
-      } else {
-        AntColony(allParcelsForAlgorithm, progress = progress, startAtParcel = startParcel, distanceCalculator = distanceCalculator)
+      val runtime = Runtime.getRuntime()
+      val usedMemBefore = runtime.totalMemory() - runtime.freeMemory()
+
+      var result: Result<Pair<Delivery, List<LatLng>>>? = null
+
+      val executionTime = measureTimeMillis {
+        val allParcelsForAlgorithm = listOf(startParcel) + parcels
+        val opt: IOptimizer = if (optimizer.equals("ABC", ignoreCase = true)) {
+          BeeColony(allParcelsForAlgorithm, progress = progress, startAtParcel = startParcel, distanceCalculator = distanceCalculator)
+        } else {
+          AntColony(allParcelsForAlgorithm, progress = progress, startAtParcel = startParcel, distanceCalculator = distanceCalculator)
+        }
+        val delivery = opt.compute()
+
+        val edgeGraph = mutableMapOf<LatLng, MutableList<LatLng>>()
+        routeGraph.getEdgesFromMapRoute().forEach { (from, to) ->
+          edgeGraph.getOrPut(from) { mutableListOf() }.add(to)
+          edgeGraph.getOrPut(to) { mutableListOf() }.add(from)
+        }
+
+        val fullDeliveryRoute = mutableListOf<LatLng>()
+        val deliveryParcels = delivery.parcels
+        for (i in 0 until deliveryParcels.size - 1) {
+          val start = deliveryParcels[i].position
+          val end = deliveryParcels[i + 1].position
+
+          val nearestStart = routeGraph.findNearestInEdgeGraph(start, edgeGraph.keys)
+          val nearestEnd = routeGraph.findNearestInEdgeGraph(end, edgeGraph.keys)
+
+          val segmentPath = routeGraph.findPathUsingEdges(nearestStart, nearestEnd, edgeGraph)
+          if (segmentPath.isNotEmpty()) fullDeliveryRoute.addAll(segmentPath)
+        }
+
+        result = Result.Success(Pair(delivery, fullDeliveryRoute))
       }
-      val delivery = opt.compute()
 
-      // Bangun graf eksplisit berdasarkan mapRouteEdges
-      val edgeGraph = mutableMapOf<LatLng, MutableList<LatLng>>()
-      routeGraph.getEdgesFromMapRoute().forEach { (from, to) ->
-        edgeGraph.getOrPut(from) { mutableListOf() }.add(to)
-        edgeGraph.getOrPut(to) { mutableListOf() }.add(from)
-      }
+      val usedMemAfter = runtime.totalMemory() - runtime.freeMemory()
+      val usedMemMB = (usedMemAfter - usedMemBefore).toDouble() / (1024 * 1024)
 
-      val fullDeliveryRoute = mutableListOf<LatLng>()
-      val deliveryParcels = delivery.parcels
-      for (i in 0 until deliveryParcels.size - 1) {
-        val start = deliveryParcels[i].position
-        val end = deliveryParcels[i + 1].position
+      Log.d("Performance", "Execution time: $executionTime ms")
+      Log.d("Performance", "Memory used: %.2f MB".format(usedMemMB))
 
-        val nearestStart = routeGraph.findNearestInEdgeGraph(start, edgeGraph.keys)
-        val nearestEnd = routeGraph.findNearestInEdgeGraph(end, edgeGraph.keys)
-
-        val segmentPath = routeGraph.findPathUsingEdges(nearestStart, nearestEnd, edgeGraph)
-        if (segmentPath.isNotEmpty()) fullDeliveryRoute.addAll(segmentPath)
-      }
-
-      Result.Success(Pair(delivery, fullDeliveryRoute))
+      result!!
     }
   }
 

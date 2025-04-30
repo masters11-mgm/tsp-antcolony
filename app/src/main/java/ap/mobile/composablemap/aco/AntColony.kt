@@ -57,13 +57,16 @@ class AntColony(
       }
       progress(cycle.toFloat() / cycleLimit.toFloat())
     }
+
+    val distanceKm = bestPath?.sugar?.times(110.574f) ?: 0.0f
+    val parcelCount = bestPath?.getParcels()?.size ?: 0
+
     val delivery = Delivery(
       parcels = bestPath?.getParcels() ?: emptyList(),
-      distance = bestPath?.sugar?.times(110.574)?.toFloat() ?: 0.0f,
-      duration = bestPath?.getDuration(distanceCalculator.routeGraph) ?: 0.0f
-
-
+      distance = distanceKm.toFloat(),
+      duration = Path.getDuration(distanceKm, parcelCount)
     )
+
     return delivery
   }
 }

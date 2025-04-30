@@ -90,7 +90,7 @@ fun ParcelDeliveryItem(parcel: Parcel) {
 @Composable
 fun DeliveryMetaInformation(
   parcels: List<Parcel>,
-  distance: Float,
+  distance: Number,
   duration: Number
 ) {
   val totalMinutes = (duration.toFloat() * 60).toInt()
@@ -137,7 +137,7 @@ fun DeliveryContent(
   isLoading: Boolean,
   parcels: List<Parcel>,
   loadingProgress: Float,
-  distance: Float = 0f,
+  distance: Number = 0f,
   duration: Number = 0f,
   onGetDeliveryRecommendation: () -> Unit = {}
 ) {

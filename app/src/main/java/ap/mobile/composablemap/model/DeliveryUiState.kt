@@ -5,5 +5,5 @@ data class DeliveryUiState(
   val computingProgress: Float = 0f,
   val deliveryRoute: List<Parcel> = emptyList(),
   val deliveryDuration: Number = 0f,
-  val deliveryDistance: Float = 0f
+  val deliveryDistance: Number = 0f
 )
