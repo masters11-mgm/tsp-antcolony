@@ -1,6 +1,8 @@
 package ap.mobile.composablemap.aco
 
 import ap.mobile.composablemap.model.Parcel
+import ap.mobile.composablemap.model.RouteGraph
+import com.google.android.gms.maps.model.LatLng
 import kotlin.math.pow
 import kotlin.math.sqrt
 
@@ -48,11 +50,35 @@ class Path (
   //   return route.map { it.id }
   // }
 
-  fun getDuration(): Float { // in hrs
-    // 10 kph
-    // 10 minutes handover
-    return ((sugar.times(110.574f) / 10f) + (route.size * 10f / 60f)).toFloat()
+  fun getDuration(routeGraph: RouteGraph): Double {
+    var totalSeconds = 0.0
+
+    for (i in 0 until route.size - 1) {
+      val from = route[i].position
+      val to = route[i + 1].position
+
+      // Temukan path dari graph
+      val segmentPath = routeGraph.findShortestPath(from, to)
+
+      // Hitung total waktu tempuh berdasarkan semua edge di path
+      for (j in 0 until segmentPath.size - 1) {
+        val fromNode = segmentPath[j]
+        val toNode = segmentPath[j + 1]
+
+        val timeSec = routeGraph.getTimeBetween(fromNode, toNode)
+        totalSeconds += timeSec
+      }
+    }
+
+//    // Tambahkan waktu serah terima: 10 menit per parcel
+    val handoverSeconds = route.size * 1 * 60
+    totalSeconds += handoverSeconds
+
+    return (totalSeconds / 3600f) // convert to hours
   }
+
+
+
 
   companion object {
     fun distance(parcel1: Parcel, parcel2: Parcel): Double {

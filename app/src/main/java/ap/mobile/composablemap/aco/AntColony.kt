@@ -60,7 +60,9 @@ class AntColony(
     val delivery = Delivery(
       parcels = bestPath?.getParcels() ?: emptyList(),
       distance = bestPath?.sugar?.times(110.574)?.toFloat() ?: 0.0f,
-      duration = bestPath?.getDuration() ?: 0.0f
+      duration = bestPath?.getDuration(distanceCalculator.routeGraph) ?: 0.0f
+
+
     )
     return delivery
   }

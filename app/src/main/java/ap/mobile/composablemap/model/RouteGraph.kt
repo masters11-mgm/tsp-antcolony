@@ -184,6 +184,50 @@ fun buildExplicitEdgeGraph(edges: List<Pair<LatLng, LatLng>>): Map<LatLng, List<
         return emptyList()
     }
 
+    fun getSpeedBetween(from: LatLng, to: LatLng): Double {
+        val nearestFrom = findNearestPointIndex(from)
+        val nearestTo = findNearestPointIndex(to)
+
+        val fromPoint = points[nearestFrom]
+        val toPoint = points[nearestTo]
+
+        // Check jika ada edge langsung
+        val edges = adjacencyList[nearestFrom]
+        val isConnected = edges?.any { it.to == nearestTo } == true
+
+        val speedCategory = if (isConnected) {
+            fromPoint.speed.lowercase()
+        } else {
+            "normal" // fallback
+        }
+
+        return when (speedCategory) {
+            "low" -> 10.0 * (1000.0 / 3600.0)  // 2.777 m/s
+            "normal" -> 30.0 * (1000.0 / 3600.0)  // 8.333 m/s
+            "fast" -> 50.0 * (1000.0 / 3600.0)  // 13.888 m/s
+            else -> 30.0 * (1000.0 / 3600.0)
+        }
+    }
+    fun getTimeBetween(from: LatLng, to: LatLng): Double {
+        val fromIndex = findNearestPointIndex(from)
+        val toIndex = findNearestPointIndex(to)
+
+        val edge = adjacencyList[fromIndex]?.find { points[it.to] == points[toIndex] }
+        return edge?.estimatedTimeSeconds ?: 0.0
+    }
+
+    fun haversineDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
+        val R = 6371000.0
+        val dLat = Math.toRadians(lat2 - lat1)
+        val dLon = Math.toRadians(lon2 - lon1)
+        val a = kotlin.math.sin(dLat / 2).pow(2.0) +
+                kotlin.math.cos(Math.toRadians(lat1)) * kotlin.math.cos(Math.toRadians(lat2)) *
+                kotlin.math.sin(dLon / 2).pow(2.0)
+        val c = 2 * kotlin.math.atan2(kotlin.math.sqrt(a), kotlin.math.sqrt(1 - a))
+        return R * c
+    }
+
+
 
     private fun findClosestPoint(target: LatLng, points: Collection<LatLng>): LatLng {
         return points.minByOrNull { haversineDistance(target, it) } ?: target

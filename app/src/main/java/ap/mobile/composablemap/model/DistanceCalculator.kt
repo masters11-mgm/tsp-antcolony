@@ -3,7 +3,7 @@ package ap.mobile.composablemap.model
 /**
  * Distance Calculator untuk ACO / ABC agar menggunakan peta RouteGraph
  */
-class DistanceCalculator(private val routeGraph: RouteGraph) {
+class DistanceCalculator(val routeGraph: RouteGraph) {
 
     /**
      * Hitung jarak terdekat dari node A ke node B.

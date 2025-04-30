@@ -284,7 +284,7 @@ fun BottomSheet(
   parcel: Parcel,
   parcels: List<Parcel> = listOf<Parcel>(),
   deliveryDistance: Float = 0f,
-  deliveryDuration: Float = 0f,
+  deliveryDuration: Number = 0f,
   onDismiss: () -> Unit = {},
   onGetDeliveryRecommendation: (Parcel) -> Unit = {}
 ) {

@@ -96,7 +96,9 @@ class Ant(val parcels: List<Parcel>,
     }
     // Not in the cumulative sum range?
     // Returns the last item
+    if (nextParcelIds.isEmpty()) return null
     return nextParcelIds.last()
+
   }
 }
 

@@ -91,8 +91,13 @@ fun ParcelDeliveryItem(parcel: Parcel) {
 fun DeliveryMetaInformation(
   parcels: List<Parcel>,
   distance: Float,
-  duration: Float
+  duration: Number
 ) {
+  val totalMinutes = (duration.toFloat() * 60).toInt()
+  val hours = totalMinutes / 60
+  val minutes = totalMinutes % 60
+  val durationText = if (hours > 0) "$hours Jam $minutes menit" else "$minutes menit"
+
   Row(
     modifier = Modifier
       .padding(top = 8.dp, bottom = 16.dp)
@@ -107,6 +112,7 @@ fun DeliveryMetaInformation(
       modifier = Modifier.padding(end = 4.dp)
     )
     Text("${parcels.size}", Modifier.padding(end = 16.dp))
+
     Icon(
       imageVector = Icons.Default.PinDrop,
       tint = MaterialTheme.colorScheme.primary,
@@ -114,13 +120,14 @@ fun DeliveryMetaInformation(
       modifier = Modifier.padding(end = 4.dp)
     )
     Text("${"%.2f".format(distance)} km", Modifier.padding(end = 16.dp))
+
     Icon(
       imageVector = Icons.Default.AccessTime,
       tint = MaterialTheme.colorScheme.primary,
       contentDescription = "Localized description",
       modifier = Modifier.padding(end = 4.dp)
     )
-    Text("${"%.2f".format(duration)} hrs")
+    Text(durationText)
   }
 }
 
@@ -131,7 +138,7 @@ fun DeliveryContent(
   parcels: List<Parcel>,
   loadingProgress: Float,
   distance: Float = 0f,
-  duration: Float = 0f,
+  duration: Number = 0f,
   onGetDeliveryRecommendation: () -> Unit = {}
 ) {
   Column(modifier = modifier.fillMaxWidth(),
@@ -205,7 +212,8 @@ fun DeliveryContent(
 @Composable
 fun PreviewDeliveryContent() {
   AppTheme(darkTheme = false, dynamicColor = false) {
-    DeliveryContent(isLoading = true,
+    DeliveryContent(
+      isLoading = true,
       modifier = Modifier.background(color = Color.White),
       parcels = emptyList(),
       loadingProgress = 0.6f)
