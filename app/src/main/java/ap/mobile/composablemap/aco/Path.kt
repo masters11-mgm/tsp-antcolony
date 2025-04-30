@@ -65,12 +65,12 @@ class Path (
         val fromNode = segmentPath[j]
         val toNode = segmentPath[j + 1]
 
-        val timeSec = routeGraph.getTimeBetween(fromNode, toNode)
+        val timeSec = routeGraph.getSpeedBetween(fromNode, toNode)
         totalSeconds += timeSec
       }
     }
 
-//    // Tambahkan waktu serah terima: 10 menit per parcel
+//    // Tambahkan waktu serah terima: 1 menit per parcel
     val handoverSeconds = route.size * 1 * 60
     totalSeconds += handoverSeconds
 
