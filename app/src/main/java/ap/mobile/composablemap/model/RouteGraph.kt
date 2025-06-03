@@ -5,6 +5,7 @@ import android.util.Log
 import com.google.android.gms.maps.model.LatLng
 import java.util.PriorityQueue
 import kotlin.math.pow
+import kotlin.math.sqrt
 
 class RouteGraph(private val points: List<RoutePoint>) {
 
@@ -76,86 +77,21 @@ class RouteGraph(private val points: List<RoutePoint>) {
         }
     }
 
-//    fun findShortestPath(start: LatLng, end: LatLng): List<LatLng> {
-//        val startIndex = findNearestPointIndex(start)
-//        val endIndex = findNearestPointIndex(end)
-//
-//        val distances = MutableList(points.size) { Double.MAX_VALUE }
-//        val previous = MutableList<Int?>(points.size) { null }
-//        val visited = MutableList(points.size) { false }
-//
-//        val queue = PriorityQueue(compareBy<Pair<Int, Double>> { it.second })
-//
-//        distances[startIndex] = 0.0
-//        queue.add(startIndex to 0.0)
-//
-//        while (queue.isNotEmpty()) {
-//            val (current, _) = queue.poll()
-//            if (visited[current]) continue
-//            visited[current] = true
-//
-//            adjacencyList[current]?.forEach { edge ->
-//                val alt = distances[current] + edge.distanceMeters
-//                if (alt < distances[edge.to]) {
-//                    distances[edge.to] = alt
-//                    previous[edge.to] = current
-//                    queue.add(edge.to to alt)
-//                }
-//            }
-//        }
-//
-//        val path = mutableListOf<LatLng>()
-//        var current = endIndex
-//        while (current != startIndex) {
-//            path.add(LatLng(points[current].lat, points[current].lng))
-//            current = previous[current] ?: break
-//        }
-//        path.add(LatLng(points[startIndex].lat, points[startIndex].lng))
-//        return path.reversed()
-//    }
-fun buildExplicitEdgeGraph(edges: List<Pair<LatLng, LatLng>>): Map<LatLng, List<LatLng>> {
-    val graph = mutableMapOf<LatLng, MutableList<LatLng>>()
-
-    for ((from, to) in edges) {
-        graph.getOrPut(from) { mutableListOf() }.add(to)
-        graph.getOrPut(to) { mutableListOf() }.add(from) // asumsi dua arah
-    }
-
-    return graph
-}
-    fun shortestPathOnEdges(
-        start: LatLng,
-        end: LatLng,
-        edgeGraph: Map<LatLng, List<LatLng>>
-    ): List<LatLng> {
-        val queue = ArrayDeque<List<LatLng>>()
-        val visited = mutableSetOf<LatLng>()
-
-        val nearestStart = findClosestPoint(start, edgeGraph.keys)
-        val nearestEnd = findClosestPoint(end, edgeGraph.keys)
-
-        queue.add(listOf(nearestStart))
-
-        while (queue.isNotEmpty()) {
-            val path = queue.removeFirst()
-            val current = path.last()
-            if (current == nearestEnd) return path
-
-            visited.add(current)
-            for (neighbor in edgeGraph[current] ?: emptyList()) {
-                if (neighbor !in visited) {
-                    queue.add(path + neighbor)
-                }
-            }
-        }
-
-        return emptyList()
-    }
-
     fun getEdgesFromMapRoute(): List<Pair<LatLng, LatLng>> {
         return points.zipWithNext()
             .filter { it.first.idLine == it.second.idLine && it.first.deadPoint != 1 }
             .map { Pair(LatLng(it.first.lat, it.first.lng), LatLng(it.second.lat, it.second.lng)) }
+    }
+
+    fun getEdgeGraph(): Map<LatLng, List<LatLng>> {
+        val edgeGraph = mutableMapOf<LatLng, MutableList<LatLng>>()
+
+        getEdgesFromMapRoute().forEach { (from, to) ->
+            edgeGraph.getOrPut(from) { mutableListOf() }.add(to)
+            edgeGraph.getOrPut(to) { mutableListOf() }.add(from) // jika graph bidirectional
+        }
+
+        return edgeGraph
     }
 
     fun findNearestInEdgeGraph(coord: LatLng, nodes: Set<LatLng>): LatLng {
@@ -391,6 +327,28 @@ fun buildExplicitEdgeGraph(edges: List<Pair<LatLng, LatLng>>): Map<LatLng, List<
             }
         }
         return edges
+    }
+
+    fun findPathDistance(from: LatLng, to: LatLng): Double {
+        val edgeGraph = getEdgeGraph()
+
+        val path = findPathUsingEdges(from, to, edgeGraph)
+
+        if (path.isEmpty() || path.size < 2) return 0.0
+
+        var totalDistance = 0.0
+        for (i in 1 until path.size) {
+            totalDistance += computeDistance(path[i - 1], path[i])
+        }
+
+        return totalDistance
+    }
+
+
+    private fun computeDistance(a: LatLng, b: LatLng): Double {
+        val dLat = a.latitude - b.latitude
+        val dLng = a.longitude - b.longitude
+        return sqrt(dLat * dLat + dLng * dLng)
     }
 
 }
